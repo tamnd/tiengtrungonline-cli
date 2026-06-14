@@ -1,0 +1,10 @@
+title       = "tiengtrungonline"
+baseURL     = "https://tiengtrungonline-cli.tamnd.com/"
+description = "A command line for tiengtrungonline."
+contentDir  = "content"
+outputDir   = "public"
+theme       = "tago-doks"
+syntaxHighlight = "true"
+
+[params]
+github = "https://github.com/tamnd/tiengtrungonline-cli"

@@ -30,7 +30,7 @@ func newTestClient(ts *httptest.Server) *tiengtrungonline.Client {
 
 func TestPosts(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fakePosts)
+		_, _ = fmt.Fprint(w, fakePosts)
 	}))
 	defer ts.Close()
 
@@ -55,7 +55,7 @@ func TestPosts(t *testing.T) {
 
 func TestCategories(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fakeCategories)
+		_, _ = fmt.Fprint(w, fakeCategories)
 	}))
 	defer ts.Close()
 

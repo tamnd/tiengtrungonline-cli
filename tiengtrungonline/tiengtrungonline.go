@@ -51,11 +51,11 @@ var tagRE = regexp.MustCompile(`<[^>]+>`)
 // internal API types
 
 type apiPost struct {
-	ID         int   `json:"id"`
-	Date       string `json:"date"`
-	Slug       string `json:"slug"`
-	Link       string `json:"link"`
-	Title      struct {
+	ID    int    `json:"id"`
+	Date  string `json:"date"`
+	Slug  string `json:"slug"`
+	Link  string `json:"link"`
+	Title struct {
 		Rendered string `json:"rendered"`
 	} `json:"title"`
 	Categories []int `json:"categories"`

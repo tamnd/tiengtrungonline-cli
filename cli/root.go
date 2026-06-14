@@ -1,34 +1,117 @@
-// Package cli assembles the tiengtrungonline command tree from the tiengtrungonline
-// domain on top of the any-cli/kit framework.
+// Package cli builds the tiengtrungonline command tree.
 package cli
 
 import (
-	"github.com/tamnd/any-cli/kit"
+	"fmt"
+	"os"
+
+	"github.com/mattn/go-isatty"
+	"github.com/spf13/cobra"
 	"github.com/tamnd/tiengtrungonline-cli/tiengtrungonline"
 )
 
-// Build metadata, set via -ldflags at release time.
 var (
 	Version = "dev"
 	Commit  = "none"
 	Date    = "unknown"
 )
 
-// NewApp assembles the kit application from the tiengtrungonline domain. The
-// domain's Register installs the client factory and every operation, so the
-// binary and a host (ant, which blank-imports the package) share one source of
-// truth. kit.Run turns the App into the CLI, plus the serve and mcp surfaces and
-// the typed-error-to-exit-code mapping.
-//
-// To add a command, declare it in tiengtrungonline/domain.go with kit.Handle and it
-// appears here automatically. Reach for app.AddCommand only for a verb that does
-// not fit the emit-records shape, the way version does below.
-func NewApp() *kit.App {
-	id := tiengtrungonline.Domain{}.Info().Identity
-	id.Version = Version
+const (
+	exitError  = 1
+	exitUsage  = 2
+	exitNoData = 3
+)
 
-	app := kit.New(id)
-	(tiengtrungonline.Domain{}).Register(app)
-	app.AddCommand(newVersionCmd())
-	return app
+type ExitError struct {
+	Code int
+	Err  error
+}
+
+func (e *ExitError) Error() string {
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("exit %d", e.Code)
+}
+
+func (e *ExitError) Unwrap() error { return e.Err }
+
+func codeError(code int, err error) error { return &ExitError{Code: code, Err: err} }
+
+type App struct {
+	client   *tiengtrungonline.Client
+	cfg      tiengtrungonline.Config
+	output   string
+	fields   []string
+	noHeader bool
+	template string
+	limit    int
+}
+
+func Root() *cobra.Command {
+	app := &App{cfg: tiengtrungonline.DefaultConfig()}
+
+	root := &cobra.Command{
+		Use:           "tiengtrungonline",
+		Short:         "Browse Tieng Trung Online from the command line",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return app.setup()
+		},
+	}
+
+	pf := root.PersistentFlags()
+	pf.StringVarP(&app.output, "output", "o", "auto", "output: table|json|jsonl|csv|tsv|url|raw")
+	pf.StringSliceVar(&app.fields, "fields", nil, "comma-separated columns to include")
+	pf.BoolVar(&app.noHeader, "no-header", false, "omit header row in table/csv/tsv")
+	pf.StringVar(&app.template, "template", "", "Go text/template per record")
+	pf.IntVarP(&app.limit, "limit", "n", 0, "limit number of records (0 = all)")
+	pf.DurationVar(&app.cfg.Rate, "delay", app.cfg.Rate, "minimum spacing between requests")
+	pf.DurationVar(&app.cfg.Timeout, "timeout", app.cfg.Timeout, "per-request timeout")
+	pf.IntVar(&app.cfg.Retries, "retries", app.cfg.Retries, "retry attempts on 429/5xx")
+
+	root.AddCommand(
+		app.postsCmd(),
+		app.categoriesCmd(),
+		newVersionCmd(),
+	)
+	return root
+}
+
+func (a *App) setup() error {
+	if a.output == "" || a.output == "auto" {
+		if isatty.IsTerminal(os.Stdout.Fd()) {
+			a.output = string(FormatTable)
+		} else {
+			a.output = string(FormatJSONL)
+		}
+	}
+	if !Format(a.output).Valid() {
+		return codeError(exitUsage, fmt.Errorf("unknown output format %q", a.output))
+	}
+	a.client = tiengtrungonline.NewClient(a.cfg)
+	return nil
+}
+
+func (a *App) render(records any) error {
+	r := NewRenderer(os.Stdout, Format(a.output), a.fields, a.noHeader, a.template)
+	return r.Render(records)
+}
+
+func (a *App) renderOrEmpty(records any, n int) error {
+	if err := a.render(records); err != nil {
+		return err
+	}
+	if n == 0 {
+		return codeError(exitNoData, nil)
+	}
+	return nil
+}
+
+func mapFetchErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	return codeError(exitError, err)
 }

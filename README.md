@@ -1,14 +1,10 @@
 # tiengtrungonline
 
-A command line for tiengtrungonline.
+A command line for [Tieng Trung Online](https://tiengtrungonline.com), a Vietnamese-Chinese learning site.
 
-`tiengtrungonline` is a single pure-Go binary. It reads public tiengtrungonline data
-over plain HTTPS, shapes it into clean records, and prints output that pipes
-into the rest of your tools. No API key, nothing to run alongside it.
-
-The same package is also a [resource-URI driver](#use-it-as-a-resource-uri-driver),
-so a host program like [ant](https://github.com/tamnd/ant) can address
-tiengtrungonline as `tiengtrungonline://` URIs.
+`tiengtrungonline` is a single pure-Go binary. It reads public data via the WordPress REST API,
+shapes it into clean records, and prints output that pipes into the rest of your tools.
+No API key, nothing to run alongside it.
 
 ## Install
 
@@ -26,11 +22,13 @@ docker run --rm ghcr.io/tamnd/tiengtrungonline:latest --help
 ## Usage
 
 ```bash
-tiengtrungonline page <path>                      # fetch one page as a record
-tiengtrungonline page <path> -o json              # as JSON, ready for jq
-tiengtrungonline page <path> --template '{{.Body}}'  # just the readable body text
-tiengtrungonline links <path>                     # the pages it links to, one per line
-tiengtrungonline --help                           # the whole command tree
+tiengtrungonline posts                        # list recent posts (table)
+tiengtrungonline posts -o json                # as JSON, ready for jq
+tiengtrungonline posts --per-page 50 --page 2  # second page, 50 per page
+tiengtrungonline posts --category 26          # filter by category ID
+tiengtrungonline categories                   # list all categories sorted by post count
+tiengtrungonline categories -o json           # as JSON
+tiengtrungonline --help                       # the whole command tree
 ```
 
 Every command shares one output contract: `-o table|json|jsonl|csv|tsv|url|raw`,
@@ -38,47 +36,29 @@ Every command shares one output contract: `-o table|json|jsonl|csv|tsv|url|raw`,
 The default adapts to where output goes (a table on a terminal, JSONL in a
 pipe), so the same command reads well by hand and parses cleanly downstream.
 
-This is a fresh scaffold. It ships one example resource type, `page`, wired end
-to end. Model the real tiengtrungonline records in `tiengtrungonline/` and declare their
-operations in `tiengtrungonline/domain.go`; each one becomes a command, an HTTP
-route, and an MCP tool at once.
+## Commands
 
-## Serve it
+### `posts`
 
-The same operations are available over HTTP and as an MCP tool set for agents,
-with no extra code:
+List posts from Tieng Trung Online.
 
-```bash
-tiengtrungonline serve --addr :7777    # GET /v1/page/<path>  returns NDJSON
-tiengtrungonline mcp                   # speak MCP over stdio
-```
+Flags:
+- `--per-page N` — number of posts per page (default 20)
+- `--page N` — page number (default 1)
+- `--category ID` — filter by category ID (default 0 = all)
 
-## Use it as a resource-URI driver
+### `categories`
 
-`tiengtrungonline` registers a `tiengtrungonline` domain the way a program registers a
-database driver with `database/sql`. A host enables it with one blank import:
-
-```go
-import _ "github.com/tamnd/tiengtrungonline-cli/tiengtrungonline"
-```
-
-Then [ant](https://github.com/tamnd/ant) (or any program that links the package)
-dereferences `tiengtrungonline://` URIs without knowing anything about tiengtrungonline:
-
-```bash
-ant get tiengtrungonline://page/<path>   # fetch the record
-ant cat tiengtrungonline://page/<path>   # just the body text
-ant ls  tiengtrungonline://page/<path>   # the pages it links to, each addressable
-ant url tiengtrungonline://page/<path>   # the live https URL
-```
+List all categories, sorted by post count descending.
 
 ## Development
 
 ```
-cmd/tiengtrungonline/   thin main: hands cli.NewApp to kit.Run
-cli/                 assembles the kit App from the tiengtrungonline domain
-tiengtrungonline/                the library: HTTP client, data models, and domain.go (the driver)
-docs/                tago documentation site
+cmd/tiengtrungonline/   thin main
+cli/                    command tree (cobra)
+tiengtrungonline/       HTTP client and data models
+pkg/                    output renderer (table/json/jsonl/csv/tsv/url/raw)
+docs/                   tago documentation site
 ```
 
 ```bash
@@ -97,9 +77,6 @@ cosign signature:
 git tag v0.1.0
 git push --tags
 ```
-
-The Homebrew and Scoop steps self-disable until their tokens exist, so the first
-release works with no extra secrets.
 
 ## License
 

@@ -1,62 +1,75 @@
-package tiengtrungonline
+package tiengtrungonline_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
+
+	"github.com/tamnd/tiengtrungonline-cli/tiengtrungonline"
 )
 
-func TestGet(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("User-Agent") == "" {
-			t.Error("request carried no User-Agent")
-		}
-		_, _ = w.Write([]byte("ok"))
+const fakePosts = `[
+  {"id":1,"date":"2026-05-17T15:41:37","slug":"bai-1","link":"https://example.com/bai-1","title":{"rendered":"B&#224;i 1: Xin ch&#224;o"},"categories":[507]},
+  {"id":2,"date":"2026-04-01T10:00:00","slug":"bai-2","link":"https://example.com/bai-2","title":{"rendered":"B&#224;i 2: C&#225;m &#417;n"},"categories":[509]}
+]`
+
+const fakeCategories = `[
+  {"id":507,"name":"Đương đại 3","slug":"duong-dai-3","count":36},
+  {"id":509,"name":"Đương đại 1","slug":"duong-dai-1","count":45},
+  {"id":1,"name":"Empty","slug":"empty","count":0}
+]`
+
+func newTestClient(ts *httptest.Server) *tiengtrungonline.Client {
+	cfg := tiengtrungonline.DefaultConfig()
+	cfg.BaseURL = ts.URL
+	cfg.Rate = 0
+	return tiengtrungonline.NewClient(cfg)
+}
+
+func TestPosts(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, fakePosts)
 	}))
-	defer srv.Close()
+	defer ts.Close()
 
-	c := NewClient()
-	c.Rate = 0 // no pacing in the test
-
-	body, err := c.Get(context.Background(), srv.URL)
+	c := newTestClient(ts)
+	posts, err := c.Posts(context.Background(), 10, 1, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "ok" {
-		t.Errorf("body = %q, want %q", body, "ok")
+	if len(posts) != 2 {
+		t.Fatalf("want 2, got %d", len(posts))
+	}
+	if posts[0].Date != "2026-05-17" {
+		t.Errorf("Date = %q", posts[0].Date)
+	}
+	if posts[0].Title != "Bài 1: Xin chào" {
+		t.Errorf("Title = %q", posts[0].Title)
+	}
+	if posts[0].Rank != 1 {
+		t.Errorf("Rank = %d", posts[0].Rank)
 	}
 }
 
-func TestGetRetriesOn503(t *testing.T) {
-	var hits int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		if hits < 3 {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		_, _ = w.Write([]byte("recovered"))
+func TestCategories(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, fakeCategories)
 	}))
-	defer srv.Close()
+	defer ts.Close()
 
-	c := NewClient()
-	c.Rate = 0
-	c.Retries = 5
-
-	start := time.Now()
-	body, err := c.Get(context.Background(), srv.URL)
+	c := newTestClient(ts)
+	cats, err := c.Categories(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "recovered" {
-		t.Errorf("body = %q after retries", body)
+	// count==0 category is skipped
+	if len(cats) != 2 {
+		t.Fatalf("want 2, got %d", len(cats))
 	}
-	if hits != 3 {
-		t.Errorf("server saw %d hits, want 3", hits)
-	}
-	if time.Since(start) < 500*time.Millisecond {
-		t.Error("retries did not back off")
+	// Sorted by Count desc
+	if cats[0].Count < cats[1].Count {
+		t.Errorf("not sorted by count desc: %d < %d", cats[0].Count, cats[1].Count)
 	}
 }

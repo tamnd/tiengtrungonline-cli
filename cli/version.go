@@ -17,7 +17,7 @@ func newVersionCmd() *cobra.Command {
 				_, _ = fmt.Fprintln(c.OutOrStdout(), Version)
 				return nil
 			}
-			_, _ = fmt.Fprintf(c.OutOrStdout(), "tiengtrungonline %s (commit %s, built %s, %s/%s, %s)\n",
+			_, _ = fmt.Fprintf(c.OutOrStdout(), "tto %s (commit %s, built %s, %s/%s, %s)\n",
 				Version, Commit, Date, runtime.GOOS, runtime.GOARCH, runtime.Version())
 			return nil
 		},

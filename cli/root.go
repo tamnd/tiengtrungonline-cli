@@ -1,4 +1,4 @@
-// Package cli builds the tiengtrungonline command tree.
+// Package cli builds the tto command tree.
 package cli
 
 import (
@@ -22,6 +22,7 @@ const (
 	exitNoData = 3
 )
 
+// ExitError carries an exit code and an optional wrapped error.
 type ExitError struct {
 	Code int
 	Err  error
@@ -38,6 +39,7 @@ func (e *ExitError) Unwrap() error { return e.Err }
 
 func codeError(code int, err error) error { return &ExitError{Code: code, Err: err} }
 
+// App holds state shared across all cobra commands.
 type App struct {
 	client   *tiengtrungonline.Client
 	cfg      tiengtrungonline.Config
@@ -48,11 +50,12 @@ type App struct {
 	limit    int
 }
 
+// Root assembles the root cobra command with all subcommands.
 func Root() *cobra.Command {
 	app := &App{cfg: tiengtrungonline.DefaultConfig()}
 
 	root := &cobra.Command{
-		Use:           "tiengtrungonline",
+		Use:           "tto",
 		Short:         "Browse Tieng Trung Online from the command line",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -74,6 +77,13 @@ func Root() *cobra.Command {
 	root.AddCommand(
 		app.postsCmd(),
 		app.categoriesCmd(),
+		app.listCmd(),
+		app.searchCmd(),
+		app.wordCmd(),
+		app.lessonCmd(),
+		app.parseCmd(),
+		app.exportCmd(),
+		app.infoCmd(),
 		newVersionCmd(),
 	)
 	return root

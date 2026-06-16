@@ -1,8 +1,9 @@
-// Command tiengtrungonline is a single-binary command line for tiengtrungonline.
+// Command tiengtrungonline is the tto single-binary command line for tiengtrungonline.com.
 package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,6 +21,10 @@ func main() {
 		fang.WithVersion(cli.Version),
 		fang.WithNotifySignal(os.Interrupt, syscall.SIGTERM),
 	); err != nil {
+		var xe *cli.ExitError
+		if errors.As(err, &xe) {
+			os.Exit(xe.Code)
+		}
 		os.Exit(1)
 	}
 }

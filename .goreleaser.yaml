@@ -17,7 +17,7 @@ before:
 
 builds:
   - id: tiengtrungonline
-    binary: tiengtrungonline
+    binary: tto
     main: ./cmd/tiengtrungonline
     env:
       - CGO_ENABLED=0
